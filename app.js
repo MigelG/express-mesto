@@ -9,7 +9,7 @@ app.use(express.json());
 
 mongoose.connect('mongodb://localhost:27017/mestodb', {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 })
   .then(() => {
     console.log('MongoDB connected!');
@@ -18,7 +18,7 @@ mongoose.connect('mongodb://localhost:27017/mestodb', {
     console.log(`ERROR: ${err}`);
   });
 
-//Хардкод авторизации
+// Хардкод авторизации
 app.use((req, res, next) => {
   req.user = { _id: '61fc0060e7b07d7580603a73' };
   next();
@@ -27,6 +27,10 @@ app.use((req, res, next) => {
 app.use('/users', require('./routes/users'));
 app.use('/cards', require('./routes/cards'));
 
+app.use((req, res) => {
+  res.status(404).send({ message: 'Страница не найдена' });
+});
+
 app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`)
+  console.log(`App listening on port ${PORT}`);
 });
