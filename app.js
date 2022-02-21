@@ -1,5 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const {
+  login, createUser,
+} = require('./controllers/users');
+const auth = require('./middlewares/auth');
+const errors = require('./middlewares/errors');
 
 const { PORT = 3000 } = process.env;
 
@@ -18,17 +23,16 @@ mongoose.connect('mongodb://localhost:27017/mestodb', {
     console.log(`ERROR: ${err}`);
   });
 
-// Хардкод авторизации
-app.use((req, res, next) => {
-  req.user = { _id: '61fc0060e7b07d7580603a73' };
-  next();
-});
+app.post('/signin', login);
+app.post('/signup', createUser);
+
+app.use(auth);
 
 app.use('/users', require('./routes/users'));
 app.use('/cards', require('./routes/cards'));
 
-app.use((req, res) => {
-  res.status(404).send({ message: 'Страница не найдена' });
+app.use((err, req, res, next) => {
+  errors(err, req, res, next);
 });
 
 app.listen(PORT, () => {

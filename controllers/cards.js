@@ -1,48 +1,62 @@
 const Card = require('../models/card');
-
-function error(res, errorCode, message) {
-  return res.status(errorCode).send({ message });
-}
+const NotFoundError = require('../errors/NotFoundError');
+const CastError = require('../errors/CastError');
+const ValidationError = require('../errors/ValidationError');
+const ForbiddenError = require('../errors/ForbiddenError');
 
 function checkResponse(res, card) {
   if (card) {
     return res.send({ data: card });
   }
-  return error(res, 404, 'Карточка не найдена');
+  throw new NotFoundError('Карточка не найдена');
 }
 
-function handleCatch(res, err) {
+function handleCatch(res, err, next) {
   if (err.name === 'CastError') {
-    return error(res, 400, 'Передан невалидный id');
+    next(new CastError('Передан невалидный id'));
   }
-  return error(res, 500, 'Произошла ошибка');
+  next(err);
 }
 
-module.exports.getCards = (req, res) => {
+module.exports.getCards = (req, res, next) => {
   Card.find({})
     .then((cards) => res.send({ data: cards }))
-    .catch(() => error(res, 500, 'Произошла ошибка'));
+    .catch(next);
 };
 
-module.exports.createCard = (req, res) => {
+module.exports.createCard = (req, res, next) => {
   const { name, link } = req.body;
   Card.create({ name, link, owner: req.user._id })
     .then((card) => res.send({ data: card }))
     .catch((err) => {
       if (err.name === 'ValidationError') {
-        return error(res, 400, err.message);
+        next(new ValidationError(err.message));
       }
-      return error(res, 500, 'Произошла ошибка');
+      next(err);
     });
 };
 
-module.exports.deleteCard = (req, res) => {
-  Card.findByIdAndRemove(req.params.id)
-    .then((card) => checkResponse(res, card))
-    .catch((err) => handleCatch(res, err));
+module.exports.deleteCard = (req, res, next) => {
+  Card.findById(req.params.id)
+    .then((card) => {
+      if (!card) {
+        throw new NotFoundError('Карточка не найдена');
+      }
+      if (JSON.stringify(card.owner).slice(1, -1) !== req.user._id) {
+        throw new ForbiddenError('Нет доступа');
+      }
+    })
+    .catch(next)
+    .then(() => {
+      Card.findByIdAndRemove(req.params.id)
+        .then((card) => {
+          checkResponse(res, card);
+        })
+        .catch((err) => handleCatch(res, err, next));
+    });
 };
 
-module.exports.likeCard = (req, res) => {
+module.exports.likeCard = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     {
@@ -53,10 +67,10 @@ module.exports.likeCard = (req, res) => {
     },
   )
     .then((card) => checkResponse(res, card))
-    .catch((err) => handleCatch(res, err));
+    .catch((err) => handleCatch(res, err, next));
 };
 
-module.exports.dislikeCard = (req, res) => {
+module.exports.dislikeCard = (req, res, next) => {
   Card.findByIdAndUpdate(
     req.params.cardId,
     {
@@ -67,5 +81,5 @@ module.exports.dislikeCard = (req, res) => {
     },
   )
     .then((card) => checkResponse(res, card))
-    .catch((err) => handleCatch(res, err));
+    .catch((err) => handleCatch(res, err, next));
 };
