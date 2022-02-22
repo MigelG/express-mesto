@@ -1,10 +1,12 @@
 const express = require('express');
+const { celebrate, Joi, errors } = require('celebrate');
 const mongoose = require('mongoose');
 const {
   login, createUser,
 } = require('./controllers/users');
 const auth = require('./middlewares/auth');
-const errors = require('./middlewares/errors');
+const handleErrors = require('./middlewares/errors');
+const NotFoundError = require('./errors/NotFoundError');
 
 const { PORT = 3000 } = process.env;
 
@@ -23,16 +25,36 @@ mongoose.connect('mongodb://localhost:27017/mestodb', {
     console.log(`ERROR: ${err}`);
   });
 
-app.post('/signin', login);
-app.post('/signup', createUser);
+app.post('/signin', celebrate({
+  body: Joi.object().keys({
+    email: Joi.string().required().email(),
+    password: Joi.string().required(),
+  }),
+}), login);
+
+app.post('/signup', celebrate({
+  body: Joi.object().keys({
+    name: Joi.string(),
+    about: Joi.string(),
+    avatar: Joi.string(),
+    email: Joi.string().required().email(),
+    password: Joi.string().required(),
+  }),
+}), createUser);
 
 app.use(auth);
 
 app.use('/users', require('./routes/users'));
 app.use('/cards', require('./routes/cards'));
 
+app.use((req, res, next) => {
+  next(new NotFoundError('Маршрут не найден'));
+});
+
+app.use(errors());
+
 app.use((err, req, res, next) => {
-  errors(err, req, res, next);
+  handleErrors(err, req, res, next);
 });
 
 app.listen(PORT, () => {

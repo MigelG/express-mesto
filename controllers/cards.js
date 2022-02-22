@@ -45,15 +45,12 @@ module.exports.deleteCard = (req, res, next) => {
       if (JSON.stringify(card.owner).slice(1, -1) !== req.user._id) {
         throw new ForbiddenError('Нет доступа');
       }
+      card.remove();
     })
-    .catch(next)
-    .then(() => {
-      Card.findByIdAndRemove(req.params.id)
-        .then((card) => {
-          checkResponse(res, card);
-        })
-        .catch((err) => handleCatch(res, err, next));
-    });
+    .then((result) => {
+      checkResponse(res, result);
+    })
+    .catch((err) => handleCatch(res, err, next));
 };
 
 module.exports.likeCard = (req, res, next) => {
